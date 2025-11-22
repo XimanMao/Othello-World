@@ -44,6 +44,22 @@ To run the tests of the code:
 Documentation
 All written documentation is located in the readme of this project.
 
+API Overview
+This Flask app uses a simple HTTP API that allows you to control an Othello game.
+All requests are simple GET requests and return JSON.
+
+Below is a brief description of the endpoints
+• View UI: GET /
+   Renders board HTML
+• Make a move: GET /move?x=<col>&y=<row>
+   Attempts to place piece for current player at (x, y)
+• Save game: GET /save
+   Saves the current game_state to a JSON on the server
+• Load game: GET /load
+   Loads from savegame.json if it exists
+• Restart: GET /restart
+   Restarts the game
+
 Support
 If any issues occur, ensure dependencies are installed correctly or restart the Flask server.
 
