@@ -224,7 +224,7 @@ def load():
         return jsonify(
             {
                 "status": "fail",
-                "message": "No save file found. A new game has been started.",
+                "message": "No save file found.",
             }
         )
 
