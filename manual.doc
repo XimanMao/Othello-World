@@ -1,0 +1,50 @@
+Othello User Manual
+Introduction
+This manual explains how to install, run, and use this project. 
+The main Flask game provides a Windows XP-styled interface to play with.
+
+Installation
+1. Ensure Python is installed.
+2. Go to the project directory in a terminal.
+3. Install dependencies using:
+   pip install -r requirements.txt
+
+Running the Web Application
+To start the web application, run:
+   python flask_engine.py
+Once the server is running, open your browser and visit:
+   http://127.0.0.1:5000
+The Othello interface will load and you can start playing!
+
+Gameplay Instructions
+• The game begins with the standard Othello starting 2x2 position in the centre.
+• Click any valid board square to play a move.
+• If a player tries to make an illegal move, a message will appear.
+• If a player has no legal moves, the turn automatically passes.
+• The game ends when both player have no legal moves.
+
+Saving and Loading
+• Click 'Save game' to store the current game.
+• Click 'Load game' to restore a previous game.
+• Saved state is stored in savegame.json.
+
+Restarting the Game
+Click the 'Restart game' button to reset the board to the initial starting layout.
+
+Command-Line Version
+To play the CLI version:
+   python game_engine.py
+This version follows the same rules using the shared logic in components.py. 
+To play a move, enter coordinates in the provided format.
+
+Testing
+To run the tests of the code:
+   python pytest
+
+Documentation
+All written documentation is located in the readme of this project.
+
+Support
+If any issues occur, ensure dependencies are installed correctly or restart the Flask server.
+
+Have fun playing!

@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Othello Game</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* prevent scrolling for proper xp experience :) */
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: "Tahoma", "Segoe UI", Arial, sans-serif;
+            padding-bottom: 40px; /* visual space for taskbar*/
+
+            /* xp-ish background */
+            background-color: #0a246a;
+            background-image: url("{{ url_for('static', filename='background.jpg') }}");
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+
+        /* xp window */
+        #window {
+            width: 800px;
+            max-width: 95vw;
+            border: 2px solid #1240bd;
+            border-radius: 6px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.6);
+            background-color: #ece9d8;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: absolute; /* important for dragging */
+        }
+
+        /* xp title bar */
+        #titleBar {
+            background: linear-gradient(to top, #245ed8, #3a6ea5);
+            color: white;
+            padding: 4px 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: move; /* indicate draggable */
+        }
+
+        #titleBarText {
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        /* fake xp window buttons */
+        #titleButtons {
+            display: flex;
+            gap: 2px;
+        }
+
+        .titleBtn {
+            width: 18px;
+            height: 18px;
+            border-radius: 2px;
+            background-color: #c0c0c0;
+            border: 1px solid #3f3f3f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: black;
+            user-select: none;
+        }
+
+        #contentArea {
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* top bar with game title and description */
+        #xpHeader {
+            padding: 6px 8px;
+            border: 1px solid #ffffff;
+            border-radius: 3px;
+            background: linear-gradient(to bottom, #ffffff, #d7d3c8);
+            font-size: 12px;
+        }
+
+        #xpHeaderTitle {
+            font-weight: bold;
+        }
+
+        #container {
+            display: flex;
+            gap: 16px;
+            margin-top: 4px;
+        }
+
+        /* board area with xp-like border */
+        #boardFrame {
+            padding: 6px;
+            border-radius: 4px;
+            border: 1px solid #ffffff;
+            background: linear-gradient(to bottom, #ffffff, #d7d3c8);
+        }
+
+        #boardContainer {
+            display: grid;
+            grid-template-columns: repeat({{game_board|length}}, 60px);
+            grid-template-rows: repeat({{game_board|length}}, 60px);
+            gap: 2px;
+            background-color: #006400;
+            padding: 6px;
+            border-radius: 4px;
+            box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.4);
+        }
+
+        .cell {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(to bottom, #2e8b57, #1f5f3c);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            border-radius: 3px;
+            box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.5);
+        }
+
+        .cell:hover {
+            outline: 1px solid #ffffcc;
+        }
+
+        .piece {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+        }
+
+        /* piece colours*/
+        .black {
+            background: radial-gradient(circle at 30% 30%, #4b6b88, #1e272e);
+        }
+
+        .white {
+            background: radial-gradient(circle at 30% 30%, #ffffff, #d4d9e3);
+            border: 1px solid #9fa8b3;
+        }
+
+        /* right side panel */
+        #sidePanel {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 260px;
+        }
+
+        .xpPanelBox {
+            background-color: #ffffff;
+            border-radius: 3px;
+            border: 1px solid #ffffff;
+            box-shadow: inset 0 0 0 1px #d7d3c8;
+            padding: 6px 8px;
+            font-size: 12px;
+        }
+
+        #currentPlayer strong {
+            font-weight: bold;
+        }
+
+        #notationBox {
+            height: 295px;
+            overflow-y: auto;
+        }
+
+        #notationBox h3,
+        #messageBox h3 {
+            margin: 0 0 4px 0;
+            font-size: 12px;
+        }
+
+        #notationBox ul {
+            padding-left: 18px;
+            margin: 0;
+        }
+
+        #controls {
+            display: flex;
+            gap: 6px;
+        }
+
+        /* xp-style buttons */
+        button {
+            font-size: 11px;
+            padding: 3px 10px;
+            border-radius: 3px;
+            border: 1px solid #3f6ea5;
+            background: linear-gradient(to bottom, #ffffff, #d6e4f4);
+            color: #000000;
+            cursor: pointer;
+            box-shadow: 0 1px 0 #ffffff;
+        }
+
+        button:hover {
+            background: linear-gradient(to bottom, #ffffff, #c3d7f0);
+        }
+
+        button:active {
+            background: linear-gradient(to bottom, #c3d7f0, #ffffff);
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+        }
+
+        #messageBox {
+            height: 110px;
+            overflow-y: auto;
+        }
+
+        #messageBox p {
+            margin: 2px 0;
+        }
+
+        /* fake windows xp taskbar */
+        #taskbar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 32px;
+            background: linear-gradient(to top, #245ed8, #3a6ea5);
+            border-top: 2px solid #1240bd;
+            display: flex;
+            align-items: center;
+            padding: 0 4px;
+            box-sizing: border-box;
+            font-size: 11px;
+            color: white;
+        }
+
+        #startButton {
+            display: flex;
+            align-items: center;
+            padding: 6px 20px;
+            margin-right: 2px;
+            border-radius: 6px;
+            background: linear-gradient(to top, #3cb54a, #3a6c1b);
+            border: 1px solid #0f5e17;
+            box-shadow: 0 1px 0 #e3f2cd;
+            color: #ffffff;
+            font-weight: bold;
+        }
+
+        #startButton img {
+            width: 18px;
+            height: 18px;
+            margin-right: 4px;
+        }
+
+        #startButtonText {
+            margin-left: 0;
+        }
+
+        #taskbarCenter {
+            flex: 1;
+            display: flex;
+            align-items: stretch; /* let children touch bottom */
+        }
+
+        /* taskbar item: icon + text with underline touching bottom */
+        .taskItem {
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            margin-left: 4px;
+            background: transparent;          /* no box */
+            border: none;
+            border-bottom: 2px solid #dfe8ff; /* line touching bottom of taskbar */
+            color: #ffffff;
+            max-width: 260px;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            height: 100%;                     /* fill taskbar height so line is at bottom */
+        }
+
+        .taskItem img {
+            width: 20px;
+            height: 20px;
+            margin-right: 6px;
+        }
+
+        .taskItem span {
+            font-size: 10px;
+        }
+
+        .taskItem:hover {
+            border-bottom-color: #ffffff;     /* brighter line on hover */
+        }
+
+
+        #taskbarClock {
+            min-width: 130px;
+            text-align: right;
+            padding-right: 6px;
+        }
+
+        /* desktop icons now top-left */
+        #desktopIcons {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: flex-start;
+            pointer-events: none; /* icons purely decorative (don't block clicks on window) */
+        }
+
+        .desktopIcon {
+            width: 90px;
+            text-align: left;
+            color: white;
+            font-size: 11px;
+            text-shadow: 1px 1px 2px black;
+            pointer-events: auto; /* allow hover effect */
+        }
+
+        .desktopIcon img {
+            width: 32px;
+            height: 32px;
+            display: block;
+            margin: 0 0 2px 0;
+        }
+
+        .iconLabel {
+            padding: 2px 2px;
+            border-radius: 2px;
+        }
+
+        .desktopIcon:hover .iconLabel {
+            background-color: rgba(0, 0, 128, 0.6);
+        }
+
+        /* xp-style popup for illegal moves */
+        #xpPopupOverlay {
+            position: fixed;
+            inset: 0;
+            display: none; /* hidden by default */
+            align-items: center;
+            justify-content: center;
+            z-index: 999; /* above everything */
+        }
+
+        #xpPopup {
+            width: 320px;
+            background-color: #ece9d8;
+            border: 2px solid #1240bd;
+            border-radius: 4px;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            font-size: 12px;
+        }
+
+        /* popup title bar */
+        #xpPopupTitleBar {
+            background: linear-gradient(to top, #245ed8, #3a6ea5);
+            color: white;
+            padding: 3px 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: bold;
+        }
+
+        #xpPopupTitleBarText {
+            font-size: 12px;
+        }
+
+        #xpPopupCloseX {
+            width: 16px;
+            height: 16px;
+            text-align: center;
+            line-height: 16px;
+            border-radius: 2px;
+            background-color: #c0c0c0;
+            border: 1px solid #3f3f3f;
+            font-size: 11px;
+            cursor: pointer;
+            color: black;
+        }
+
+        /* popup content and button area */
+        #xpPopupContent {
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        #xpPopupIcon {
+            display: flex;
+            justify-content: center;
+        }
+
+        #xpPopupIcon img {
+            width: 256px;
+            height: 256px;
+        }
+
+        #xpPopupMessage {
+            text-align: center;
+        }
+
+        #xpPopupButtons {
+            display: flex;
+            justify-content: center;
+            padding: 8px;
+            border-top: 1px solid #d7d3c8;
+        }
+
+        /* popup ok button styled like xp buttons */
+        #xpPopupOkButton {
+            font-size: 11px;
+            padding: 3px 18px;
+            border-radius: 3px;
+            border: 1px solid #3f6ea5;
+            background: linear-gradient(to bottom, #ffffff, #d6e4f4);
+            color: #000000;
+            cursor: pointer;
+            box-shadow: 0 1px 0 #ffffff;
+        }
+
+        #xpPopupOkButton:hover {
+            background: linear-gradient(to bottom, #ffffff, #c3d7f0);
+        }
+
+        #xpPopupOkButton:active {
+            background: linear-gradient(to bottom, #c3d7f0, #ffffff);
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+        }
+
+
+    </style>
+</head>
+
+<!-- popup for illegal moves -->
+<div id="xpPopupOverlay">
+    <div id="xpPopup">
+        <div id="xpPopupTitleBar">
+            <div id="xpPopupTitleBarText">Notification</div>
+            <div id="xpPopupCloseX">X</div>
+        </div>
+        <div id="xpPopupContent">
+            <div id="xpPopupIcon">
+                <img id="xpPopupIconImage" src="{{ url_for('static', filename='FurinaSneering.png') }}" alt="Popup Icon">
+            </div>
+            <div id="xpPopupMessage">Message</div>
+        </div>
+        <div id="xpPopupButtons">
+            <button id="xpPopupOkButton">OK</button>
+        </div>
+    </div>
+</div>
+
+
+<body>
+
+<!-- fake xp desktop icons -->
+<div id="desktopIcons">
+    <div class="desktopIcon">
+        <img src="{{ url_for('static', filename='My Computer.png') }}" alt="My Computer">
+        <div class="iconLabel">My Computer</div>
+    </div>
+    <div class="desktopIcon">
+        <img src="{{ url_for('static', filename='My Documents.png') }}" alt="My Documents">
+        <div class="iconLabel">My Documents</div>
+    </div>
+    <div class="desktopIcon">
+        <img src="{{ url_for('static', filename='Othello.png') }}" alt="Othello">
+        <div class="iconLabel">Othello</div>
+    </div>
+    <div class="desktopIcon">
+        <img src="{{ url_for('static', filename='Internet Explorer 6.png') }}" alt="Internet Explorer">
+        <div class="iconLabel">Internet Explorer</div>
+    </div>
+    <div class="desktopIcon">
+        <img src="{{ url_for('static', filename='Help and Support.png') }}" alt="Support">
+        <div class="iconLabel">Help &amp; Support</div>
+    </div>
+    <div class="desktopIcon">
+        <img src="{{ url_for('static', filename='Recycle Bin (full).png') }}" alt="Recycle Bin">
+        <div class="iconLabel">Recycle Bin</div>
+    </div>
+</div>
+
+<div id="window">
+    <!-- title bar -->
+    <div id="titleBar">
+        <div id="titleBarText">Othello - Windows XP Edition</div>
+        <div id="titleButtons">
+            <div class="titleBtn">_</div>
+            <div class="titleBtn">□</div>
+            <div class="titleBtn">X</div>
+        </div>
+    </div>
+
+    <div id="contentArea">
+        <!-- header bar -->
+        <div id="xpHeader">
+            <div id="xpHeaderTitle">Othello by Ximan Mao</div>
+            <div>Play Othello in a classic Windows XP-style interface. Click on the board to place your pieces.</div>
+        </div>
+
+        <div id="container">
+            <!-- board area -->
+            <div id="boardFrame">
+                <div id="boardContainer">
+                    {% for i in range(game_board|length) %}
+                        {% for j in range(game_board|length) %}
+                            <div class="cell" id="cell-{{ j }}-{{ i }}" onclick="sendMove({{ j+1 }}, {{ i+1 }}, '/move')">
+                                {% if game_board[i][j].strip() == 'Black' %}
+                                    <div class="piece black"></div>
+                                {% elif game_board[i][j].strip() == 'White' %}
+                                    <div class="piece white"></div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- side panel -->
+            <div id="sidePanel">
+                <div id="currentPlayer" class="xpPanelBox">
+                    <strong>Current player:</strong>
+                    <span id="currentPlayerText">{{ current_player }}</span>
+                </div>
+
+                <div id="notationBox" class="xpPanelBox">
+                    <h3>Game notation</h3>
+                    <ul id="notationList">
+                        {% for entry in move_history %}
+                            <li>{{ loop.index }}. {{ entry }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
+                <div id="controls">
+                    <button onclick="callSave()">Save game</button>
+                    <button onclick="callLoad()">Load game</button>
+                    <button onclick="callRestart()">Restart game</button>
+                </div>
+
+                <div id="messageBox" class="xpPanelBox">
+                    <h3>Game log</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- fake windows xp taskbar -->
+<div id="taskbar">
+    <div id="startButton">
+        <img src="{{ url_for('static', filename='xplogo.png') }}" alt="Start">
+        <span id="startButtonText">start</span>
+    </div>
+    <div id="taskbarCenter">
+        <div id="taskItemOthello" class="taskItem">
+            <img src="{{ url_for('static', filename='Othello.png') }}" alt="Othello Icon">
+            <span>Othello - Windows XP Edition</span>
+        </div>
+    </div>
+    <div id="taskbarClock"></div>
+</div>
+
+<script>
+    // initial board from flask
+    let board = {{game_board|tojson}};
+    // for handling moves after game is already over
+    let gameOver = {{ 'true' if finished else 'false' }};
+
+    function sendMove(x, y, url) {
+        // if the game is already over, don't send a move to the server
+        if (gameOver) {
+            const msg = "The game is already over. Click 'Restart game' to play a new match!";
+            showGameAlreadyOverPopup(msg);
+            updateMessageBox(msg);
+            return;
+        }
+
+        fetch(`${url}?x=${x}&y=${y}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log("Server response:", data);
+
+                if (data.status === "success") {
+                    board = data.board;
+                    loadBoard(board);
+
+                    if (data.current_player) {
+                        document.getElementById("currentPlayerText").textContent = data.current_player;
+                    }
+
+                    if (data.notation) {
+                        let list = document.getElementById("notationList");
+                        let item = document.createElement("li");
+                        let count = list.children.length + 1;
+                        item.textContent = count + ". " + data.notation;
+                        list.appendChild(item);
+                        list.scrollTop = list.scrollHeight;
+                    }
+
+                    if (data.finished) {
+                        gameOver = true;
+                        updateMessageBox(data.finished);
+                        showGameEndPopup(data.finished);
+                    } else {
+                        updateMessageBox(data.message || `Move played at (${x}, ${y}).`);
+                    }
+
+                } else {
+                    const msg = data.message || "Illegal move.";
+                    showIllegalMovePopup(msg);
+                    updateMessageBox(msg);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                showIllegalMovePopup("An error occurred while processing the move.");
+            });
+    }
+
+
+    function loadBoard(board) {
+        for (let y = 0; y < board.length; y++) {
+            for (let x = 0; x < board.length; x++) {
+                let cell = document.getElementById(`cell-${x}-${y}`);
+                cell.innerHTML = "";
+
+                if (board[y][x].trim() === "Black") {
+                    let piece = document.createElement('div');
+                    piece.className = 'piece black';
+                    cell.appendChild(piece);
+                }
+                else if (board[y][x].trim() === "White") {
+                    let piece = document.createElement('div');
+                    piece.className = 'piece white';
+                    cell.appendChild(piece);
+                }
+            }
+        }
+    }
+
+    function callRestart() {
+        fetch('/restart')
+            .then(response => response.json())
+            .then(data => {
+                updateMessageBox(data.message || "Game restarted.");
+                location.reload(); // refresh page to load the new game state
+            })
+            .catch(error => console.error("Error:", error));
+    }
+
+    function updateMessageBox(message) {
+        let box = document.getElementById("messageBox");
+        let newMessage = document.createElement("p");
+        newMessage.textContent = message;
+        box.appendChild(newMessage);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function callSave() {
+        fetch('/save')
+            .then(response => response.json())
+            .then(data => {
+                const msg = data.message || "Game saved.";
+                updateMessageBox(msg);
+                showSavePopup(msg);
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                showPopup("An error occurred while saving the game.", "Save Error",
+                    "{{ url_for('static', filename='FurinaCheerful.png') }}"
+                );
+            });
+    }
+
+
+    function callLoad() {
+        fetch('/load')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    const msg = data.message || "Game loaded.";
+
+                    // put message in log immediately
+                    updateMessageBox(msg);
+
+                    // store the message so we can show the popup after reload
+                    localStorage.setItem("loadSuccessMessage", msg);
+
+                    // reload to refresh board + notation from server
+                    location.reload();
+                } else {
+                    const msg = data.message || "Failed to load game.";
+                    updateMessageBox(msg);
+                    showLoadFailurePopup(msg);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                const msg = "An error occurred while loading the game.";
+                updateMessageBox(msg);
+                showLoadFailurePopup(msg);
+            });
+    }
+
+
+
+    // xp-style clock in the taskbar
+    function updateClock() {
+        const now = new Date();
+        const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const date = now.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const clockEl = document.getElementById("taskbarClock");
+        if (clockEl) {
+            clockEl.textContent = time + " " + date;
+        }
+    }
+
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // make the window draggable by the title bar
+    (function enableDragging() {
+        const windowEl = document.getElementById("window");
+        const titleBar = document.getElementById("titleBar");
+        let isDragging = false;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        // center the window initially
+        function centerWindow() {
+            const rect = windowEl.getBoundingClientRect();
+            const winWidth = window.innerWidth;
+            const winHeight = window.innerHeight;
+
+            const left = (winWidth - rect.width) / 2;
+            const top = (winHeight - rect.height) / 2 - 10; // slight offset from center
+
+            windowEl.style.left = left + "px";
+            windowEl.style.top = top + "px";
+        }
+
+        window.addEventListener("load", centerWindow);
+        window.addEventListener("resize", centerWindow);
+
+        titleBar.addEventListener("mousedown", function (e) {
+            isDragging = true;
+            const rect = windowEl.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+            document.body.style.userSelect = "none";
+        });
+
+        document.addEventListener("mousemove", function (e) {
+            if (!isDragging) return;
+
+            let left = e.clientX - offsetX;
+            let top = e.clientY - offsetY;
+
+            // different bounds for each side
+            const marginHorizontal = 60;
+            const marginTop = 0;
+            const marginBottom = 120;
+
+            const rect = windowEl.getBoundingClientRect();
+            const width = rect.width;
+
+            const minLeft = -width + marginHorizontal;
+            const maxLeft = window.innerWidth - marginHorizontal;
+
+            const minTop = marginTop;
+            const maxTop = window.innerHeight - marginBottom;
+
+            if (left < minLeft) left = minLeft;
+            if (left > maxLeft) left = maxLeft;
+
+            if (top < minTop) top = minTop;
+            if (top > maxTop) top = maxTop;
+
+            windowEl.style.left = left + "px";
+            windowEl.style.top = top + "px";
+        });
+
+        document.addEventListener("mouseup", function () {
+            isDragging = false;
+            document.body.style.userSelect = "";
+        });
+    })();
+
+    function showPopup(message, title, imageUrl) {
+        const overlay = document.getElementById("xpPopupOverlay");
+        const msgEl = document.getElementById("xpPopupMessage");
+        const titleEl = document.getElementById("xpPopupTitleBarText");
+        const iconEl = document.getElementById("xpPopupIconImage");
+
+        if (msgEl) msgEl.textContent = message || "";
+        if (titleEl) titleEl.textContent = title || "Message";
+        if (iconEl && imageUrl) iconEl.src = imageUrl;
+
+        overlay.style.display = "flex";
+    }
+
+    function showIllegalMovePopup(message) {
+        showPopup(
+            message || "Illegal move.",
+            "Furina does not approve of your move",
+            "{{ url_for('static', filename='FurinaScary.png') }}"
+        );
+    }
+
+    function showSavePopup(message) {
+        showPopup(
+            message || "Game saved.",
+            "Furina has saved your game!",
+            "{{ url_for('static', filename='FurinaCheerful.png') }}"
+        );
+    }
+
+    function showLoadSuccessPopup(message) {
+        showPopup(
+            message || "Game loaded successfully.",
+            "Furina has restored your game!",
+            "{{ url_for('static', filename='FurinaSneering.png') }}"
+        );
+    }
+
+    function showLoadFailurePopup(message) {
+        showPopup(
+            message || "Could not load the game.",
+            "Furina cannot find a saved game!",
+            "{{ url_for('static', filename='FurinaCrying.png') }}"
+        );
+    }
+
+    function showGameEndPopup(message) {
+        showPopup(
+            message || "Game over.",
+            "Furina has finished arbitrating the match",
+            "{{ url_for('static', filename='FurinaVictory.png') }}"
+        );
+    }
+
+    function showGameAlreadyOverPopup(message) {
+        showPopup(
+            message || "The game is already over. Restart to play again.",
+            "Furina can't continue a finished game!",
+            "{{ url_for('static', filename='FurinaShock.png') }}"
+        );
+    }
+
+    function hidePopup() {
+        const overlay = document.getElementById("xpPopupOverlay");
+        if (overlay) {
+            overlay.style.display = "none";
+        }
+    }
+
+    window.addEventListener("load", () => {
+        const okBtn = document.getElementById("xpPopupOkButton");
+        const closeX = document.getElementById("xpPopupCloseX");
+
+        if (okBtn) {
+            okBtn.addEventListener("click", hidePopup);
+        }
+        if (closeX) {
+            closeX.addEventListener("click", hidePopup);
+        }
+
+        // check if we just loaded a game
+        const loadMsg = localStorage.getItem("loadSuccessMessage");
+        if (loadMsg) {
+            // If the loaded game is already finished, show the "already over" popup instead
+            if (gameOver) {
+                showGameAlreadyOverPopup("The loaded game is already over! Click 'Restart game' to play a new match!");
+            } else {
+                showLoadSuccessPopup(loadMsg);
+            }
+            localStorage.removeItem("loadSuccessMessage");
+        }
+    });
+
+</script>
+
+</body>
+</html>
