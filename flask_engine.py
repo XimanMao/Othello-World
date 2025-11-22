@@ -1,6 +1,7 @@
 """Flask web interface for the Othello game."""
 
 import json
+import os
 
 from flask import Flask, render_template, request, jsonify
 
@@ -238,4 +239,15 @@ def restart():
 if __name__ == "__main__":
     print("Starting Othello")
     new_game()
-    app.run(debug=True)
+
+    port = os.environ.get("PORT")
+
+    if port:
+        # running on Railway
+        app.run(
+            host="0.0.0.0",
+            port=int(port)
+        )
+    else:
+        # running locally
+        app.run(debug=True)
